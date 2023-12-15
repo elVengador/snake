@@ -30,6 +30,7 @@ export type Thing = {
   direction: ThingDirection;
 };
 
+const MAX_SCORE_KEY =  'max-score'
 const COLORS = {
   black: "#252525",
 };
@@ -91,6 +92,7 @@ const Home: NextPage = () => {
   const [snake, setSnake] = useState<Snake>(INITIAL_SNAKE);
   const [foods, setFoods] = useState<Thing[]>([]);
   const [rocks, setRocks] = useState<Thing[]>([]);
+  const [maxScore,setMaxScore] = useState(0)
 
   const movementAudioRef = useRef<HTMLAudioElement | null>(null);
   const loseAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -194,9 +196,12 @@ const Home: NextPage = () => {
     });
     if (rockIdCollision) {
       playAudio(loseAudioRef);
+      const newMaxScore = Math.max(snake.body.length,maxScore)
+      localStorage.setItem(MAX_SCORE_KEY,newMaxScore.toString());
+      setMaxScore(newMaxScore)
       return setSnake((prev) => ({ ...prev, state: "DEAD" }));
     }
-  }, [foods, rocks, slots, snake]);
+  }, [foods, maxScore, rocks, slots, snake]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -206,6 +211,8 @@ const Home: NextPage = () => {
       startGameAudioRef.current = new Audio("./sounds/game-start.mp3");
       successAudioRef.current = new Audio("./sounds/success.mp3");
       completedAudioRef.current = new Audio("./sounds/complete.mp3");
+      const maxScoreFromLocalStorage = Number(localStorage.getItem(MAX_SCORE_KEY)) ?? 0
+      setMaxScore(maxScoreFromLocalStorage)
     }
   }, []);
 
@@ -247,12 +254,13 @@ const Home: NextPage = () => {
             alignItems: "center",
             justifyContent: "center",
             color: "white",
+            padding:"20px"
           }}
         >
           <h1 style={{ fontSize: "64px" }}>Game Over</h1>
-          <h2
-            style={{ color: "#dddddd" }}
-          >{`You've got ${snake.body.length} points`}</h2>
+          <p
+            style={{ color: "#dddddd", fontSize:"40px",textAlign:"center" }}
+          >{`You've got ${snake.body.length} points`}, Your max score <span style={{color:"royalblue"}}>{maxScore}</span></p>
           <button
             onClick={onStartGame}
             style={{ padding: "8px", fontSize: "16px" }}
