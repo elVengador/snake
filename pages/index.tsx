@@ -12,14 +12,15 @@ import {
 import { getIdOfFirstCollisionThing, moveSnake } from "../utils.ts/snake.utils";
 import { useElementSize } from "../hooks/useElementSize";
 
+export type ThingDirection = "top" | "left" | "right" | "bottom";
 type SlotsOnGame = { x: number; y: number };
-export type Node = { x: number; y: number,id:string };
+export type Node = { x: number; y: number; id: string };
 export type Snake = {
   state: "LIVE" | "DEAD";
   body: Node[];
   lastNodeData: Node;
+  direction: ThingDirection;
 };
-export type ThingDirection = "top" | "left" | "right" | "bottom";
 export type Offset = { x: number; y: number };
 export type Thing = {
   id: string;
@@ -30,15 +31,24 @@ export type Thing = {
   direction: ThingDirection;
 };
 
-const MAX_SCORE_KEY =  'max-score'
+const getOffset = (slotDimensionPx: number,direction:ThingDirection):Offset=> {
+  if(direction==="bottom")return{ x: 0, y: slotDimensionPx }
+  if(direction==="left")return{ x: -slotDimensionPx, y: 0 }
+  if(direction==="right")return{ x: slotDimensionPx, y: 0 }
+  if(direction==="top")return{ x: 0, y: -slotDimensionPx }
+  return{ x: 0, y: 0} 
+}
+
+const MAX_SCORE_KEY = "max-score";
 const COLORS = {
   black: "#252525",
 };
 const NODE_DIMENSION = 50;
 const INITIAL_SNAKE: Snake = {
   state: "LIVE",
-  body: [{ x: 100, y: 100,id:uuid4() }],
-  lastNodeData: { x: 100, y: 100,id:uuid4() },
+  body: [{ x: 100, y: 100, id: uuid4() }],
+  lastNodeData: { x: 100, y: 100, id: uuid4() },
+  direction: "right",
 };
 
 const getRandomInteger = (max: number) => Math.floor(Math.random() * max);
@@ -83,6 +93,36 @@ const newRock = ({
   direction,
 });
 
+const getInitialRocks = (slots: SlotsOnGame, slotDimensionPx: number) => {
+  const topRocks = Array(slots.x)
+    .fill(null)
+    .map((_, i) => newRock({ x: i * slotDimensionPx, y: 0, direction: "top" }));
+  const bottomRocks = Array(slots.x)
+    .fill(null)
+    .map((_, i) =>
+      newRock({
+        x: i * slotDimensionPx,
+        y: (slots.y - 1) * slotDimensionPx,
+        direction: "bottom",
+      })
+    );
+  const leftRocks = Array(slots.y)
+    .fill(null)
+    .map((_, i) =>
+      newRock({ x: 0, y: i * slotDimensionPx, direction: "left" })
+    );
+  const rightRocks = Array(slots.y)
+    .fill(null)
+    .map((_, i) =>
+      newRock({
+        x: (slots.x - 1) * slotDimensionPx,
+        y: i * slotDimensionPx,
+        direction: "right",
+      })
+    );
+  return [...topRocks, ...bottomRocks, ...leftRocks, ...rightRocks];
+};
+
 type getRandomRockInput = { slots: SlotsOnGame; slotDimensionPx: number };
 // const getRandomRock = ({slots,slotDimensionPx}:getRandomRockInput): Thing => {
 //   return newRock({x:getRandomInteger(slots.x)*slotDimensionPx,y:getRandomInteger(slots.y)*slotDimensionPx})
@@ -92,7 +132,7 @@ const Home: NextPage = () => {
   const [snake, setSnake] = useState<Snake>(INITIAL_SNAKE);
   const [foods, setFoods] = useState<Thing[]>([]);
   const [rocks, setRocks] = useState<Thing[]>([]);
-  const [maxScore,setMaxScore] = useState(0)
+  const [maxScore, setMaxScore] = useState(0);
 
   const movementAudioRef = useRef<HTMLAudioElement | null>(null);
   const loseAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -121,44 +161,16 @@ const Home: NextPage = () => {
   const onStartGame = useCallback(() => {
     setSnake(INITIAL_SNAKE);
     setFoods([getRandomFood({ slots, slotDimensionPx: NODE_DIMENSION })]);
-    const topRocks = Array(slots.x)
-      .fill(null)
-      .map((_, i) =>
-        newRock({ x: i * NODE_DIMENSION, y: 0, direction: "top" })
-      );
-    const bottomRocks = Array(slots.x)
-      .fill(null)
-      .map((_, i) =>
-        newRock({
-          x: i * NODE_DIMENSION,
-          y: (slots.y - 1) * NODE_DIMENSION,
-          direction: "bottom",
-        })
-      );
-    const leftRocks = Array(slots.y)
-      .fill(null)
-      .map((_, i) =>
-        newRock({ x: 0, y: i * NODE_DIMENSION, direction: "left" })
-      );
-    const rightRocks = Array(slots.y)
-      .fill(null)
-      .map((_, i) =>
-        newRock({
-          x: (slots.x - 1) * NODE_DIMENSION,
-          y: i * NODE_DIMENSION,
-          direction: "right",
-        })
-      );
-    setRocks([...topRocks, ...bottomRocks, ...leftRocks, ...rightRocks]);
+    setRocks(getInitialRocks(slots, NODE_DIMENSION));
     playAudio(startGameAudioRef);
   }, [slots]);
 
-  type onMoveSnakeInput = Offset;
-  const onMoveSnake = useCallback((offset: onMoveSnakeInput) => {
+  const onMoveSnake = useCallback((direction:ThingDirection,byUser?:boolean) => {
     setSnake((prev) => {
+      const offset = getOffset(NODE_DIMENSION,direction)
       const newSnake = moveSnake({ snake: prev.body, offset });
       const lastNodeFromNewSnake = prev.body[prev.body.length - 1];
-      return { ...prev, body: newSnake, lastNodeData: lastNodeFromNewSnake };
+      return { ...prev, body: newSnake, lastNodeData: lastNodeFromNewSnake,direction:byUser?direction:prev.direction };
     });
 
     playAudio(movementAudioRef);
@@ -170,11 +182,24 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     if (snake.state === "DEAD") return;
+    const timeoutId = setInterval(() => {
+      console.log('timer')
+     onMoveSnake(snake.direction);
+    }, 1000);
+    return () => clearInterval(timeoutId);
+  }, [onMoveSnake, snake.direction, snake.state]);
 
-    const [head,...body] = snake.body;
+  useEffect(() => {
+    if (snake.state === "DEAD") return;
+
+    const [head, ...body] = snake.body;
     const foodIdCollision = getIdOfFirstCollisionThing({
       head,
-      things: foods.map(c=>({...c,height:NODE_DIMENSION,width:NODE_DIMENSION})),
+      things: foods.map((c) => ({
+        ...c,
+        height: NODE_DIMENSION,
+        width: NODE_DIMENSION,
+      })),
       thingDimensions: NODE_DIMENSION,
     });
     if (foodIdCollision) {
@@ -183,7 +208,7 @@ const Home: NextPage = () => {
       setFoods([...filteredFoods, newFood]);
       setSnake({
         ...snake,
-        body: [...snake.body, {...snake.lastNodeData,id:uuid4()}],
+        body: [...snake.body, { ...snake.lastNodeData, id: uuid4() }],
         lastNodeData: snake.body[snake.body.length - 1],
       });
       playAudio(successAudioRef);
@@ -191,27 +216,35 @@ const Home: NextPage = () => {
 
     const rockIdCollision = getIdOfFirstCollisionThing({
       head,
-      things: rocks.map(c=>({...c,height:NODE_DIMENSION,width:NODE_DIMENSION})),
+      things: rocks.map((c) => ({
+        ...c,
+        height: NODE_DIMENSION,
+        width: NODE_DIMENSION,
+      })),
       thingDimensions: NODE_DIMENSION,
     });
     if (rockIdCollision) {
       playAudio(loseAudioRef);
-      const newMaxScore = Math.max(snake.body.length,maxScore)
-      localStorage.setItem(MAX_SCORE_KEY,newMaxScore.toString());
-      setMaxScore(newMaxScore)
+      const newMaxScore = Math.max(snake.body.length, maxScore);
+      localStorage.setItem(MAX_SCORE_KEY, newMaxScore.toString());
+      setMaxScore(newMaxScore);
       return setSnake((prev) => ({ ...prev, state: "DEAD" }));
     }
 
     const nodeIdCollision = getIdOfFirstCollisionThing({
       head,
-      things: body.map(c=>({...c,height:NODE_DIMENSION,width:NODE_DIMENSION})),
+      things: body.map((c) => ({
+        ...c,
+        height: NODE_DIMENSION,
+        width: NODE_DIMENSION,
+      })),
       thingDimensions: NODE_DIMENSION,
     });
-    if(nodeIdCollision){
+    if (nodeIdCollision) {
       playAudio(loseAudioRef);
-      const newMaxScore = Math.max(snake.body.length,maxScore)
-      localStorage.setItem(MAX_SCORE_KEY,newMaxScore.toString());
-      setMaxScore(newMaxScore)
+      const newMaxScore = Math.max(snake.body.length, maxScore);
+      localStorage.setItem(MAX_SCORE_KEY, newMaxScore.toString());
+      setMaxScore(newMaxScore);
       return setSnake((prev) => ({ ...prev, state: "DEAD" }));
     }
   }, [foods, maxScore, rocks, slots, snake]);
@@ -224,17 +257,18 @@ const Home: NextPage = () => {
       startGameAudioRef.current = new Audio("./sounds/game-start.mp3");
       successAudioRef.current = new Audio("./sounds/success.mp3");
       completedAudioRef.current = new Audio("./sounds/complete.mp3");
-      const maxScoreFromLocalStorage = Number(localStorage.getItem(MAX_SCORE_KEY)) ?? 0
-      setMaxScore(maxScoreFromLocalStorage)
+      const maxScoreFromLocalStorage =
+        Number(localStorage.getItem(MAX_SCORE_KEY)) ?? 0;
+      setMaxScore(maxScoreFromLocalStorage);
     }
   }, []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "ArrowUp") onMoveSnake({ x: 0, y: -NODE_DIMENSION });
-      if (e.code === "ArrowLeft") onMoveSnake({ x: -NODE_DIMENSION, y: 0 });
-      if (e.code === "ArrowDown") onMoveSnake({ x: 0, y: NODE_DIMENSION });
-      if (e.code === "ArrowRight") onMoveSnake({ x: NODE_DIMENSION, y: 0 });
+      if (e.code === "ArrowUp") onMoveSnake("top",true);
+      if (e.code === "ArrowLeft") onMoveSnake("left",true);
+      if (e.code === "ArrowDown") onMoveSnake("bottom",true);
+      if (e.code === "ArrowRight") onMoveSnake("right",true);
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -267,13 +301,16 @@ const Home: NextPage = () => {
             alignItems: "center",
             justifyContent: "center",
             color: "white",
-            padding:"20px"
+            padding: "20px",
           }}
         >
           <h1 style={{ fontSize: "64px" }}>Game Over</h1>
           <p
-            style={{ color: "#dddddd", fontSize:"40px",textAlign:"center" }}
-          >{`You've got ${snake.body.length} points`}, Your max score <span style={{color:"royalblue"}}>{maxScore}</span></p>
+            style={{ color: "#dddddd", fontSize: "40px", textAlign: "center" }}
+          >
+            {`You've got ${snake.body.length} points`}, Your max score{" "}
+            <span style={{ color: "royalblue" }}>{maxScore}</span>
+          </p>
           <button
             onClick={onStartGame}
             style={{ padding: "8px", fontSize: "16px" }}
