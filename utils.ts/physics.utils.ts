@@ -1,11 +1,12 @@
-type Thing = {
+export type EmptyThing = {
+    id:string,
   x: number;
   y: number;
   width: number;
   height: number;
 };
 
-type DetectCollision = {thing1: Thing, thing2: Thing}
+type DetectCollision = {thing1: EmptyThing, thing2: EmptyThing}
 
 export const detectCollision = ({thing1,thing2}:DetectCollision): boolean => {
   // Calculate the boundaries of the objects

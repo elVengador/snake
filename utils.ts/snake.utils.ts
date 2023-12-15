@@ -1,10 +1,11 @@
 import { Node, Offset, Thing } from "../pages";
-import { detectCollision } from "./physics.utils";
+import { EmptyThing, detectCollision } from "./physics.utils";
 
 type MoveNodeInput = { node: Node; offset: Offset };
 export const moveNode = ({ node, offset }: MoveNodeInput): Node => ({
   x: node.x + offset.x,
   y: node.y + offset.y,
+  id:node.id
 });
 
 type MoveSnakeInitialType = { previousNode: null | Node; newNodes: Node[] };
@@ -26,7 +27,7 @@ export const moveSnake = ({ snake, offset }: MoveSnakeInput): Node[] => {
 
 type GetIdOfFirstCollisionThingInput = {
   head: Node;
-  things: Thing[];
+  things: EmptyThing[];
   thingDimensions: number;
 };
 export const getIdOfFirstCollisionThing = ({
@@ -36,7 +37,7 @@ export const getIdOfFirstCollisionThing = ({
 }: GetIdOfFirstCollisionThingInput) =>
   things.reduce((acu, cur): string => {
     if (acu) return acu;
-    const thing1 = { ...head, height: thingDimensions, width: thingDimensions };
+    const thing1 = { ...head, height: thingDimensions, width: thingDimensions,id:"head" };
     const thing2 = { ...cur, height: thingDimensions, width: thingDimensions };
     return detectCollision({ thing1, thing2 }) ? thing2.id : "";
   }, "");

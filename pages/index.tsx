@@ -13,7 +13,7 @@ import { getIdOfFirstCollisionThing, moveSnake } from "../utils.ts/snake.utils";
 import { useElementSize } from "../hooks/useElementSize";
 
 type SlotsOnGame = { x: number; y: number };
-export type Node = { x: number; y: number };
+export type Node = { x: number; y: number,id:string };
 export type Snake = {
   state: "LIVE" | "DEAD";
   body: Node[];
@@ -37,8 +37,8 @@ const COLORS = {
 const NODE_DIMENSION = 50;
 const INITIAL_SNAKE: Snake = {
   state: "LIVE",
-  body: [{ x: 100, y: 100 }],
-  lastNodeData: { x: 100, y: 100 },
+  body: [{ x: 100, y: 100,id:uuid4() }],
+  lastNodeData: { x: 100, y: 100,id:uuid4() },
 };
 
 const getRandomInteger = (max: number) => Math.floor(Math.random() * max);
@@ -171,10 +171,10 @@ const Home: NextPage = () => {
   useEffect(() => {
     if (snake.state === "DEAD") return;
 
-    const head = snake.body[0];
+    const [head,...body] = snake.body;
     const foodIdCollision = getIdOfFirstCollisionThing({
       head,
-      things: foods,
+      things: foods.map(c=>({...c,height:NODE_DIMENSION,width:NODE_DIMENSION})),
       thingDimensions: NODE_DIMENSION,
     });
     if (foodIdCollision) {
@@ -183,7 +183,7 @@ const Home: NextPage = () => {
       setFoods([...filteredFoods, newFood]);
       setSnake({
         ...snake,
-        body: [...snake.body, snake.lastNodeData],
+        body: [...snake.body, {...snake.lastNodeData,id:uuid4()}],
         lastNodeData: snake.body[snake.body.length - 1],
       });
       playAudio(successAudioRef);
@@ -191,10 +191,23 @@ const Home: NextPage = () => {
 
     const rockIdCollision = getIdOfFirstCollisionThing({
       head,
-      things: rocks,
+      things: rocks.map(c=>({...c,height:NODE_DIMENSION,width:NODE_DIMENSION})),
       thingDimensions: NODE_DIMENSION,
     });
     if (rockIdCollision) {
+      playAudio(loseAudioRef);
+      const newMaxScore = Math.max(snake.body.length,maxScore)
+      localStorage.setItem(MAX_SCORE_KEY,newMaxScore.toString());
+      setMaxScore(newMaxScore)
+      return setSnake((prev) => ({ ...prev, state: "DEAD" }));
+    }
+
+    const nodeIdCollision = getIdOfFirstCollisionThing({
+      head,
+      things: body.map(c=>({...c,height:NODE_DIMENSION,width:NODE_DIMENSION})),
+      thingDimensions: NODE_DIMENSION,
+    });
+    if(nodeIdCollision){
       playAudio(loseAudioRef);
       const newMaxScore = Math.max(snake.body.length,maxScore)
       localStorage.setItem(MAX_SCORE_KEY,newMaxScore.toString());
