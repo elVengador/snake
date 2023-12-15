@@ -132,6 +132,8 @@ type getRandomRockInput = { slots: SlotsOnGame; slotDimensionPx: number };
 // };
 
 const Home: NextPage = () => {
+  const [nickname,setNickname] = useState("")
+  const [startPlay,setStartPlay] = useState(false)
   const [snake, setSnake] = useState<Snake>(INITIAL_SNAKE);
   const [foods, setFoods] = useState<Thing[]>([]);
   const [rocks, setRocks] = useState<Thing[]>([]);
@@ -145,16 +147,18 @@ const Home: NextPage = () => {
   const startGameAudioRef = useRef<HTMLAudioElement | null>(null);
   const successAudioRef = useRef<HTMLAudioElement | null>(null);
   const completedAudioRef = useRef<HTMLAudioElement | null>(null);
-  const mainRef = useRef<HTMLDivElement | null>(null);
+  const [mainElement,setMainElement] = useState<HTMLDivElement | null>(null);
+  const mainRef = useCallback((element:HTMLDivElement)=>setMainElement(element),[])
 
-  const { elementHeight, elementWidth } = useElementSize(mainRef);
+  const { elementHeight, elementWidth } = useElementSize(mainElement);
 
   const slots: SlotsOnGame = useMemo(() => {
+    if(!startPlay) return {x:0,y:0}
     return {
       x: Math.floor(elementWidth / NODE_DIMENSION),
       y: Math.floor(elementHeight / NODE_DIMENSION),
     };
-  }, [elementHeight, elementWidth]);
+  }, [elementHeight, elementWidth, startPlay]);
 
   const playAudio = (audioRef: MutableRefObject<HTMLAudioElement | null>) => {
     if (!audioRef.current) return;
@@ -164,7 +168,12 @@ const Home: NextPage = () => {
     audioRef.current.play();
   };
 
-  const onStartGame = useCallback(() => {
+  const onStartGame = ()=>{
+    onPlayGame()
+    setStartPlay(true)
+  }
+
+  const onPlayGame = useCallback(() => {
     setSnake(INITIAL_SNAKE);
     setFoods([getRandomFood({ slots, slotDimensionPx: NODE_DIMENSION })]);
     setRocks(getInitialRocks(slots, NODE_DIMENSION));
@@ -191,10 +200,11 @@ const Home: NextPage = () => {
   );
 
   useEffect(() => {
-    onStartGame();
-  }, [onStartGame]);
+    onPlayGame();
+  }, [onPlayGame]);
 
   useEffect(() => {
+    if(!startPlay) return
     if (snake.state === "DEAD") return;
     const timeoutId = setInterval(() => {
       onMoveSnake(snake.direction);
@@ -202,7 +212,7 @@ const Home: NextPage = () => {
       setScore((prev) => prev + 0.01);
     }, speed);
     return () => clearInterval(timeoutId);
-  }, [onMoveSnake, snake.direction, snake.state, speed]);
+  }, [onMoveSnake, snake.direction, snake.state, speed, startPlay]);
 
   useEffect(() => {
     // Calculate the new speed logarithmically
@@ -220,6 +230,7 @@ const Home: NextPage = () => {
   }, [score, speed]);
 
   useEffect(() => {
+    if(!startPlay) return
     if (snake.state === "DEAD") return;
 
     const [head, ...body] = snake.body;
@@ -278,7 +289,7 @@ const Home: NextPage = () => {
       setMaxScore(newMaxScore);
       return setSnake((prev) => ({ ...prev, state: "DEAD" }));
     }
-  }, [foods, maxScore, rocks, score, slots, snake]);
+  }, [foods, maxScore, rocks, score, slots, snake, startPlay]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -295,6 +306,7 @@ const Home: NextPage = () => {
   }, []);
 
   useEffect(() => {
+    if(!startPlay) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "ArrowUp") onMoveSnake("top", true);
       if (e.code === "ArrowLeft") onMoveSnake("left", true);
@@ -305,7 +317,7 @@ const Home: NextPage = () => {
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onMoveSnake]);
+  }, [onMoveSnake, startPlay]);
 
   return (
     <div
@@ -323,7 +335,33 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {snake.state === "DEAD" && (
+      {!startPlay && <main
+          style={{
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            padding: "20px",
+          }}
+        >
+          <h1 style={{ fontSize: "64px",textAlign:"center" }}>Snake Game</h1>
+          <form style={{display:"grid",gap:"20px",fontSize:"24px"}}>
+            <label>
+              Enter your nickname:
+            </label>
+            <input value={nickname} onChange={e=>setNickname(e.target.value)} style={{fontSize:"24px"}}/>
+          <button
+            onClick={onStartGame}
+            style={{ padding: "8px", fontSize: "16px" }}
+          >
+            Play!
+          </button>
+          </form>
+        </main>}
+
+      {startPlay &&snake.state === "DEAD" && (
         <main
           style={{
             height: "100%",
@@ -339,11 +377,14 @@ const Home: NextPage = () => {
           <p
             style={{ color: "#dddddd", fontSize: "40px", textAlign: "center" }}
           >
-            {`You've got ${snake.body.length} points`}, Your max score{" "}
+            {nickname?`${nickname} got ${score} points`:`You've got ${snake.body.length} points`}
+            <br/>
+            {"Your max score is "}
             <span style={{ color: "royalblue" }}>{maxScore}</span>
           </p>
+
           <button
-            onClick={onStartGame}
+            onClick={onPlayGame}
             style={{ padding: "8px", fontSize: "16px" }}
           >
             Try Again
@@ -351,7 +392,7 @@ const Home: NextPage = () => {
         </main>
       )}
 
-      {snake.state === "LIVE" && (
+      {startPlay &&snake.state === "LIVE" && (
         <main
           style={{
             height: "100%",
@@ -371,7 +412,7 @@ const Home: NextPage = () => {
             }}
           >
             <h1 style={{ padding: "0px", margin: "0px", fontSize: "36px" }}>
-              Snake
+              {nickname?`Snake's ${nickname}`:"Snake"}
             </h1>
             <div style={{ display: "flex", gap: "30px" }}>
               <div>Score: {score.toFixed(1)}</div>

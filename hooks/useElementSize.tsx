@@ -5,7 +5,7 @@ type ElementSize = {
     elementHeight: number;
   }
   
-  export const useElementSize = (elementRef: React.RefObject<HTMLElement>): ElementSize => {
+  export const useElementSize = (elementRef:HTMLElement|null): ElementSize => {
     const [elementSize, setElementSize] = useState<ElementSize>({
       elementWidth: 0,
       elementHeight: 0,
@@ -13,9 +13,8 @@ type ElementSize = {
   
     useEffect(() => {
       const updateElementSize = () => {
-        if (elementRef.current) {
-          const { offsetWidth, offsetHeight } = elementRef.current;
-          console.log('resizeObserver')
+        if (elementRef) {
+          const { offsetWidth, offsetHeight } = elementRef;
           setElementSize({
             elementWidth: offsetWidth,
             elementHeight: offsetHeight,
@@ -28,14 +27,14 @@ type ElementSize = {
   
       // Event listener for element size changes
       const resizeObserver = new ResizeObserver(updateElementSize);
-      if (elementRef.current) {
-        resizeObserver.observe(elementRef.current);
+      if (elementRef) {
+        resizeObserver.observe(elementRef);
       }
   
       // Cleanup the event listener on component unmount
       return () => {
-        if (elementRef.current) {
-          resizeObserver.unobserve(elementRef.current);
+        if (elementRef) {
+          resizeObserver.unobserve(elementRef);
         }
       };
     }, [elementRef]);
