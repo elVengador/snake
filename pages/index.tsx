@@ -31,13 +31,16 @@ export type Thing = {
   direction: ThingDirection;
 };
 
-const getOffset = (slotDimensionPx: number,direction:ThingDirection):Offset=> {
-  if(direction==="bottom")return{ x: 0, y: slotDimensionPx }
-  if(direction==="left")return{ x: -slotDimensionPx, y: 0 }
-  if(direction==="right")return{ x: slotDimensionPx, y: 0 }
-  if(direction==="top")return{ x: 0, y: -slotDimensionPx }
-  return{ x: 0, y: 0} 
-}
+const getOffset = (
+  slotDimensionPx: number,
+  direction: ThingDirection
+): Offset => {
+  if (direction === "bottom") return { x: 0, y: slotDimensionPx };
+  if (direction === "left") return { x: -slotDimensionPx, y: 0 };
+  if (direction === "right") return { x: slotDimensionPx, y: 0 };
+  if (direction === "top") return { x: 0, y: -slotDimensionPx };
+  return { x: 0, y: 0 };
+};
 
 const MAX_SCORE_KEY = "max-score";
 const COLORS = {
@@ -132,7 +135,10 @@ const Home: NextPage = () => {
   const [snake, setSnake] = useState<Snake>(INITIAL_SNAKE);
   const [foods, setFoods] = useState<Thing[]>([]);
   const [rocks, setRocks] = useState<Thing[]>([]);
+  const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
+  const [timer, setTimer] = useState(0);
+  const [speed, setSpeed] = useState(1000);
 
   const movementAudioRef = useRef<HTMLAudioElement | null>(null);
   const loseAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -165,16 +171,24 @@ const Home: NextPage = () => {
     playAudio(startGameAudioRef);
   }, [slots]);
 
-  const onMoveSnake = useCallback((direction:ThingDirection,byUser?:boolean) => {
-    setSnake((prev) => {
-      const offset = getOffset(NODE_DIMENSION,direction)
-      const newSnake = moveSnake({ snake: prev.body, offset });
-      const lastNodeFromNewSnake = prev.body[prev.body.length - 1];
-      return { ...prev, body: newSnake, lastNodeData: lastNodeFromNewSnake,direction:byUser?direction:prev.direction };
-    });
+  const onMoveSnake = useCallback(
+    (direction: ThingDirection, byUser?: boolean) => {
+      setSnake((prev) => {
+        const offset = getOffset(NODE_DIMENSION, direction);
+        const newSnake = moveSnake({ snake: prev.body, offset });
+        const lastNodeFromNewSnake = prev.body[prev.body.length - 1];
+        return {
+          ...prev,
+          body: newSnake,
+          lastNodeData: lastNodeFromNewSnake,
+          direction: byUser ? direction : prev.direction,
+        };
+      });
 
-    playAudio(movementAudioRef);
-  }, []);
+      playAudio(movementAudioRef);
+    },
+    []
+  );
 
   useEffect(() => {
     onStartGame();
@@ -183,11 +197,27 @@ const Home: NextPage = () => {
   useEffect(() => {
     if (snake.state === "DEAD") return;
     const timeoutId = setInterval(() => {
-      console.log('timer')
-     onMoveSnake(snake.direction);
-    }, 1000);
+      onMoveSnake(snake.direction);
+      setTimer((prev) => prev + 1);
+      setScore((prev) => prev + 0.01);
+    }, speed);
     return () => clearInterval(timeoutId);
-  }, [onMoveSnake, snake.direction, snake.state]);
+  }, [onMoveSnake, snake.direction, snake.state, speed]);
+
+  useEffect(() => {
+    // Calculate the new speed logarithmically
+    const minSpeed = 10; // Minimum speed (in ms)
+    const maxSpeed = 1000; // Maximum speed (in ms)
+    const base = 2; // Logarithmic base
+    const factor = 200; // Speed increase factor per 10 points
+
+    const logarithmicSpeed = Math.max(
+      maxSpeed / Math.pow(base, score / factor),
+      minSpeed
+    );
+
+    setSpeed(logarithmicSpeed);
+  }, [score, speed]);
 
   useEffect(() => {
     if (snake.state === "DEAD") return;
@@ -211,6 +241,7 @@ const Home: NextPage = () => {
         body: [...snake.body, { ...snake.lastNodeData, id: uuid4() }],
         lastNodeData: snake.body[snake.body.length - 1],
       });
+      setScore((prev) => prev + 3);
       playAudio(successAudioRef);
     }
 
@@ -225,7 +256,7 @@ const Home: NextPage = () => {
     });
     if (rockIdCollision) {
       playAudio(loseAudioRef);
-      const newMaxScore = Math.max(snake.body.length, maxScore);
+      const newMaxScore = Math.max(score, maxScore);
       localStorage.setItem(MAX_SCORE_KEY, newMaxScore.toString());
       setMaxScore(newMaxScore);
       return setSnake((prev) => ({ ...prev, state: "DEAD" }));
@@ -247,7 +278,7 @@ const Home: NextPage = () => {
       setMaxScore(newMaxScore);
       return setSnake((prev) => ({ ...prev, state: "DEAD" }));
     }
-  }, [foods, maxScore, rocks, slots, snake]);
+  }, [foods, maxScore, rocks, score, slots, snake]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -265,10 +296,10 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "ArrowUp") onMoveSnake("top",true);
-      if (e.code === "ArrowLeft") onMoveSnake("left",true);
-      if (e.code === "ArrowDown") onMoveSnake("bottom",true);
-      if (e.code === "ArrowRight") onMoveSnake("right",true);
+      if (e.code === "ArrowUp") onMoveSnake("top", true);
+      if (e.code === "ArrowLeft") onMoveSnake("left", true);
+      if (e.code === "ArrowDown") onMoveSnake("bottom", true);
+      if (e.code === "ArrowRight") onMoveSnake("right", true);
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -342,7 +373,10 @@ const Home: NextPage = () => {
             <h1 style={{ padding: "0px", margin: "0px", fontSize: "36px" }}>
               Snake
             </h1>
-            <div>Score: {snake.body.length}</div>
+            <div style={{ display: "flex", gap: "30px" }}>
+              <div>Score: {score.toFixed(1)}</div>
+              <div>Time: {timer}s</div>
+            </div>
           </section>
 
           {/* game map */}
