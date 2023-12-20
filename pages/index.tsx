@@ -166,7 +166,7 @@ const Home: NextPage = () => {
     audioRef.current.play();
   };
 
-  const onStartGame = () => {
+  const onStartGame = async () => {
     onPlayGame();
     setStartPlay(true);
   };
@@ -381,10 +381,69 @@ const Home: NextPage = () => {
             />
             <button
               onClick={onStartGame}
-              style={{ padding: "8px", fontSize: "16px" }}
+              style={{
+                padding: "16px",
+                fontSize: "16px",
+                backgroundColor: "royalblue",
+                color: "white",
+                border: "none",
+              }}
             >
               Play!
             </button>
+            <section>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gridTemplateRows: "1fr 1fr",
+                }}
+              >
+                <div></div>
+                <div
+                  style={{
+                    border: "solid 2px white",
+                    padding: "8px",
+                    textAlign: "center",
+                    borderRadius: "4px",
+                  }}
+                >
+                  ↑
+                </div>
+                <div></div>
+                <div
+                  style={{
+                    border: "solid 2px white",
+                    padding: "8px",
+                    textAlign: "center",
+                    borderRadius: "4px",
+                  }}
+                >
+                  ←
+                </div>
+                <div
+                  style={{
+                    border: "solid 2px white",
+                    padding: "8px",
+                    textAlign: "center",
+                    borderRadius: "4px",
+                  }}
+                >
+                  ↓
+                </div>
+                <div
+                  style={{
+                    border: "solid 2px white",
+                    padding: "8px",
+                    textAlign: "center",
+                    borderRadius: "4px",
+                  }}
+                >
+                  →
+                </div>
+              </div>
+              <p style={{ textAlign: "center" }}>Play with arrow keys</p>
+            </section>
           </form>
         </main>
       )}
