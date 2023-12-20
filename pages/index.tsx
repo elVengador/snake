@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { getIdOfFirstCollisionThing, moveSnake } from "../utils.ts/snake.utils";
+import { getIdOfFirstCollisionThing, moveSnake } from "../utils/snake.utils";
 import { useElementSize } from "../hooks/useElementSize";
 
 export type ThingDirection = "top" | "left" | "right" | "bottom";
@@ -126,14 +126,9 @@ const getInitialRocks = (slots: SlotsOnGame, slotDimensionPx: number) => {
   return [...topRocks, ...bottomRocks, ...leftRocks, ...rightRocks];
 };
 
-type getRandomRockInput = { slots: SlotsOnGame; slotDimensionPx: number };
-// const getRandomRock = ({slots,slotDimensionPx}:getRandomRockInput): Thing => {
-//   return newRock({x:getRandomInteger(slots.x)*slotDimensionPx,y:getRandomInteger(slots.y)*slotDimensionPx})
-// };
-
 const Home: NextPage = () => {
-  const [nickname,setNickname] = useState("")
-  const [startPlay,setStartPlay] = useState(false)
+  const [nickname, setNickname] = useState("");
+  const [startPlay, setStartPlay] = useState(false);
   const [snake, setSnake] = useState<Snake>(INITIAL_SNAKE);
   const [foods, setFoods] = useState<Thing[]>([]);
   const [rocks, setRocks] = useState<Thing[]>([]);
@@ -147,13 +142,16 @@ const Home: NextPage = () => {
   const startGameAudioRef = useRef<HTMLAudioElement | null>(null);
   const successAudioRef = useRef<HTMLAudioElement | null>(null);
   const completedAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [mainElement,setMainElement] = useState<HTMLDivElement | null>(null);
-  const mainRef = useCallback((element:HTMLDivElement)=>setMainElement(element),[])
+  const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
+  const mainRef = useCallback(
+    (element: HTMLDivElement) => setMainElement(element),
+    []
+  );
 
   const { elementHeight, elementWidth } = useElementSize(mainElement);
 
   const slots: SlotsOnGame = useMemo(() => {
-    if(!startPlay) return {x:0,y:0}
+    if (!startPlay) return { x: 0, y: 0 };
     return {
       x: Math.floor(elementWidth / NODE_DIMENSION),
       y: Math.floor(elementHeight / NODE_DIMENSION),
@@ -168,10 +166,10 @@ const Home: NextPage = () => {
     audioRef.current.play();
   };
 
-  const onStartGame = ()=>{
-    onPlayGame()
-    setStartPlay(true)
-  }
+  const onStartGame = () => {
+    onPlayGame();
+    setStartPlay(true);
+  };
 
   const onPlayGame = useCallback(() => {
     setSnake(INITIAL_SNAKE);
@@ -199,12 +197,23 @@ const Home: NextPage = () => {
     []
   );
 
+  type OnSaveScoreInput = { score: number; nickname: string };
+  const onSaveScore = useCallback(
+    async ({ score, nickname }: OnSaveScoreInput) => {
+      await fetch("http://localhost:3000/api/score", {
+        method: "POST",
+        body: JSON.stringify({ name: nickname, score }),
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     onPlayGame();
   }, [onPlayGame]);
 
   useEffect(() => {
-    if(!startPlay) return
+    if (!startPlay) return;
     if (snake.state === "DEAD") return;
     const timeoutId = setInterval(() => {
       onMoveSnake(snake.direction);
@@ -230,7 +239,7 @@ const Home: NextPage = () => {
   }, [score, speed]);
 
   useEffect(() => {
-    if(!startPlay) return
+    if (!startPlay) return;
     if (snake.state === "DEAD") return;
 
     const [head, ...body] = snake.body;
@@ -267,10 +276,13 @@ const Home: NextPage = () => {
     });
     if (rockIdCollision) {
       playAudio(loseAudioRef);
-      const newMaxScore = Math.max(score, maxScore);
-      localStorage.setItem(MAX_SCORE_KEY, newMaxScore.toString());
-      setMaxScore(newMaxScore);
-      return setSnake((prev) => ({ ...prev, state: "DEAD" }));
+      setSnake((prev) => ({ ...prev, state: "DEAD" }));
+      if (score <= maxScore) return;
+
+      localStorage.setItem(MAX_SCORE_KEY, score.toString());
+      setMaxScore(score);
+      onSaveScore({ nickname, score });
+      return;
     }
 
     const nodeIdCollision = getIdOfFirstCollisionThing({
@@ -287,9 +299,21 @@ const Home: NextPage = () => {
       const newMaxScore = Math.max(snake.body.length, maxScore);
       localStorage.setItem(MAX_SCORE_KEY, newMaxScore.toString());
       setMaxScore(newMaxScore);
-      return setSnake((prev) => ({ ...prev, state: "DEAD" }));
+      setSnake((prev) => ({ ...prev, state: "DEAD" }));
+      onSaveScore({ nickname, score: newMaxScore });
+      return;
     }
-  }, [foods, maxScore, rocks, score, slots, snake, startPlay]);
+  }, [
+    foods,
+    maxScore,
+    nickname,
+    onSaveScore,
+    rocks,
+    score,
+    slots,
+    snake,
+    startPlay,
+  ]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -306,7 +330,7 @@ const Home: NextPage = () => {
   }, []);
 
   useEffect(() => {
-    if(!startPlay) return
+    if (!startPlay) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "ArrowUp") onMoveSnake("top", true);
       if (e.code === "ArrowLeft") onMoveSnake("left", true);
@@ -335,7 +359,8 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {!startPlay && <main
+      {!startPlay && (
+        <main
           style={{
             height: "100%",
             display: "flex",
@@ -346,22 +371,25 @@ const Home: NextPage = () => {
             padding: "20px",
           }}
         >
-          <h1 style={{ fontSize: "64px",textAlign:"center" }}>Snake Game</h1>
-          <form style={{display:"grid",gap:"20px",fontSize:"24px"}}>
-            <label>
-              Enter your nickname:
-            </label>
-            <input value={nickname} onChange={e=>setNickname(e.target.value)} style={{fontSize:"24px"}}/>
-          <button
-            onClick={onStartGame}
-            style={{ padding: "8px", fontSize: "16px" }}
-          >
-            Play!
-          </button>
+          <h1 style={{ fontSize: "64px", textAlign: "center" }}>Snake Game</h1>
+          <form style={{ display: "grid", gap: "20px", fontSize: "24px" }}>
+            <label>Enter your nickname:</label>
+            <input
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              style={{ fontSize: "24px" }}
+            />
+            <button
+              onClick={onStartGame}
+              style={{ padding: "8px", fontSize: "16px" }}
+            >
+              Play!
+            </button>
           </form>
-        </main>}
+        </main>
+      )}
 
-      {startPlay &&snake.state === "DEAD" && (
+      {startPlay && snake.state === "DEAD" && (
         <main
           style={{
             height: "100%",
@@ -377,8 +405,10 @@ const Home: NextPage = () => {
           <p
             style={{ color: "#dddddd", fontSize: "40px", textAlign: "center" }}
           >
-            {nickname?`${nickname} got ${score} points`:`You've got ${snake.body.length} points`}
-            <br/>
+            {nickname
+              ? `${nickname} got ${score.toFixed(1)} points`
+              : `You've got ${snake.body.length} points`}
+            <br />
             {"Your max score is "}
             <span style={{ color: "royalblue" }}>{maxScore}</span>
           </p>
@@ -392,7 +422,7 @@ const Home: NextPage = () => {
         </main>
       )}
 
-      {startPlay &&snake.state === "LIVE" && (
+      {startPlay && snake.state === "LIVE" && (
         <main
           style={{
             height: "100%",
@@ -412,7 +442,7 @@ const Home: NextPage = () => {
             }}
           >
             <h1 style={{ padding: "0px", margin: "0px", fontSize: "36px" }}>
-              {nickname?`Snake's ${nickname}`:"Snake"}
+              {nickname ? `Snake's ${nickname}` : "Snake"}
             </h1>
             <div style={{ display: "flex", gap: "30px" }}>
               <div>Score: {score.toFixed(1)}</div>
